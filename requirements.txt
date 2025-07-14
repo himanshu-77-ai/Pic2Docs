@@ -1,0 +1,7 @@
+streamlit
+pytesseract
+Pillow
+fpdf
+python-docx
+openpyxl
+deep-translator
