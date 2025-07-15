@@ -1,105 +1,97 @@
 import streamlit as st
 import requests
-from PIL import Image
-from io import BytesIO
+import pandas as pd
 from fpdf import FPDF
 from docx import Document
-from openpyxl import Workbook
-import textwrap
-from PIL import ImageDraw, ImageFont
+import base64
+from io import BytesIO
+import openpyxl
 
-# 🔑 Your OCR.space API key
-OCR_API_KEY = "K82703136888957"
+# ----------------- OCR Function -----------------
+def ocr_space_file(image_file, api_key='K82703136888957'):
+    payload = {
+        'isOverlayRequired': False,
+        'apikey': api_key,
+        'language': 'eng',
+    }
+    files = {
+        'file': image_file,
+    }
+    response = requests.post('https://api.ocr.space/parse/image',
+                             files=files,
+                             data=payload)
+    result = response.json()
+    try:
+        return result['ParsedResults'][0]['ParsedText']
+    except:
+        return "Error reading text."
 
-st.title("📸 Pic2Docs (Cloud) - Convert Image to Text")
+# ----------------- PDF Generator -----------------
+def generate_pdf(text):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)  # ✅ Default font (no error)
+    for line in text.split('\n'):
+        pdf.multi_cell(0, 10, line)
+    buffer = BytesIO()
+    pdf.output(buffer)
+    buffer.seek(0)
+    return buffer
 
-uploaded_file = st.file_uploader("Upload an image", type=["png", "jpg", "jpeg"])
+# ----------------- Word Generator -----------------
+def generate_word(text):
+    doc = Document()
+    doc.add_heading("Extracted Text", 0)
+    for line in text.split('\n'):
+        doc.add_paragraph(line)
+    buffer = BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+    return buffer
 
-if "extracted_text" not in st.session_state:
-    st.session_state["extracted_text"] = ""
+# ----------------- Excel Generator -----------------
+def generate_excel(text):
+    lines = text.strip().split('\n')
+    df = pd.DataFrame({'Extracted Text': lines})
+    buffer = BytesIO()
+    df.to_excel(buffer, index=False)
+    buffer.seek(0)
+    return buffer
+
+# ----------------- Streamlit UI -----------------
+st.set_page_config(page_title="Pic2Docs", layout="centered")
+st.title("📸 Pic2Docs - Image to Text Extractor")
+
+uploaded_file = st.file_uploader("Upload an image", type=['jpg', 'png', 'jpeg'])
 
 if uploaded_file:
-    image = Image.open(uploaded_file)
-    st.image(image, caption="Uploaded Image", use_container_width=True)
+    st.image(uploaded_file, caption="Uploaded Image", use_column_width=True)
+    st.info("Extracting text...")
 
-    lang = st.selectbox("Select OCR Language", ["English", "Hindi"])
-    lang_code = "eng" if lang == "English" else "hin"
+    extracted_text = ocr_space_file(uploaded_file)  # 👈 Key is already inside the function
 
-    if st.button("Extract Text"):
-        with st.spinner("Extracting text using OCR API..."):
-            try:
-                img_bytes = BytesIO()
-                image.save(img_bytes, format='PNG')
-                img_bytes.seek(0)
+    st.subheader("📝 Extracted Text")
+    st.text_area("Result", extracted_text, height=250)
 
-                response = requests.post(
-                    'https://api.ocr.space/parse/image',
-                    files={"filename": img_bytes},
-                    data={"language": lang_code, "isOverlayRequired": False},
-                    headers={"apikey": OCR_API_KEY}
-                )
+    # ----------------- Download Buttons -----------------
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        pdf_file = generate_pdf(extracted_text)
+        st.download_button(label="📄 Download PDF",
+                           data=pdf_file,
+                           file_name="output.pdf",
+                           mime="application/pdf")
 
-                result = response.json()
-                extracted = result['ParsedResults'][0]['ParsedText']
-                st.session_state["extracted_text"] = extracted
-                st.success("Text extracted successfully!")
+    with col2:
+        word_file = generate_word(extracted_text)
+        st.download_button(label="📝 Download Word",
+                           data=word_file,
+                           file_name="output.docx",
+                           mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 
-            except Exception as e:
-                st.error(f"OCR failed: {e}")
-
-# Display and download section
-text = st.session_state["extracted_text"]
-if text:
-    st.text_area("Extracted Text", text, height=300)
-    st.download_button("⬇️ Download as .txt", text, file_name="output.txt")
-
-    # PDF download
-    if st.button("⬇️ Download as PDF"):
-        pdf = FPDF()
-        pdf.add_page()
-        pdf.set_font("Arial", size=12)
-        lines = text.split('\n')
-        for line in lines:
-            pdf.multi_cell(0, 10, txt=line)
-        pdf.output("output.pdf")
-        with open("output.pdf", "rb") as f:
-            st.download_button("Download PDF", f, file_name="extracted_text.pdf")
-
-    # Word file
-    if st.button("⬇️ Download as Word"):
-        doc = Document()
-        doc.add_heading("Extracted Text", 0)
-        for line in text.split('\n'):
-            doc.add_paragraph(line)
-        doc.save("output.docx")
-        with open("output.docx", "rb") as f:
-            st.download_button("Download Word File", f, file_name="extracted_text.docx")
-
-    # Excel file
-    if st.button("⬇️ Download as Excel"):
-        wb = Workbook()
-        ws = wb.active
-        lines = text.split('\n')
-        for idx, line in enumerate(lines, start=1):
-            ws.cell(row=idx, column=1, value=line)
-        wb.save("output.xlsx")
-        with open("output.xlsx", "rb") as f:
-            st.download_button("Download Excel File", f, file_name="extracted_text.xlsx")
-
-    # Image file (notebook style)
-    if st.button("⬇️ Download as Notebook Image"):
-        img_width, img_height = 800, 1200
-        image = Image.new('RGB', (img_width, img_height), color='white')
-        draw = ImageDraw.Draw(image)
-        font = ImageFont.load_default()
-        margin, offset, line_height = 40, 40, 20
-        wrapped_text = textwrap.wrap(text, width=100)
-        for line in wrapped_text:
-            draw.text((margin, offset), line, font=font, fill='black')
-            offset += line_height
-        image.save("output_img.png")
-        with open("output_img.png", "rb") as f:
-            st.download_button("Download Image", f, file_name="notebook_text.png")
-
-else:
-    st.info("Upload an image and click 'Extract Text' to begin.")
+    with col3:
+        excel_file = generate_excel(extracted_text)
+        st.download_button(label="📊 Download Excel",
+                           data=excel_file,
+                           file_name="output.xlsx",
+                           mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
