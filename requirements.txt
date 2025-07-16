@@ -1,7 +1,6 @@
 streamlit
-pytesseract
-Pillow
+requests
 fpdf
 python-docx
-openpyxl
-deep-translator
+pandas
+xlsxwriter
