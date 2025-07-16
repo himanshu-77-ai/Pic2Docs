@@ -1,6 +1,8 @@
 streamlit
-requests
+easyocr
+Pillow
 fpdf
 python-docx
 pandas
 xlsxwriter
+numpy
