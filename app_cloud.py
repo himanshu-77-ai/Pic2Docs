@@ -1,11 +1,10 @@
 import streamlit as st
 import requests
 
-# -------------------- CONFIG --------------------
-API_KEY = "K82703136888957"  # Your OCR.space API key
+# Config
+API_KEY = "K82703136888957"
 OCR_API_URL = "https://api.ocr.space/parse/image"
 
-# -------------------- OCR FUNCTION --------------------
 def ocr_space_image(image_file, api_key=API_KEY, language="eng"):
     try:
         response = requests.post(
@@ -22,20 +21,16 @@ def ocr_space_image(image_file, api_key=API_KEY, language="eng"):
     except Exception as e:
         return f"❌ OCR Failed: {str(e)}"
 
-# -------------------- UI --------------------
+# UI
 st.set_page_config(page_title="Pic2Docs", layout="centered")
-
 st.title("📸 Pic2Docs - Convert Image to Text")
-st.markdown("Upload an image file and extract text using OCR API.\n\nSupports multiple languages 🌐.")
+st.markdown("Upload an image and extract text using OCR API.\n\nSupports multiple languages 🌐.")
 
-uploaded_file = st.file_uploader(
-    "Upload an image", type=["png", "jpg", "jpeg"]
-)
+uploaded_file = st.file_uploader("Upload an image", type=["png", "jpg", "jpeg"])
 
 if uploaded_file is not None:
     st.image(uploaded_file, caption="Uploaded Image", use_column_width=True)
 
-    # Language selection
     lang_display = st.selectbox("Select image language", ["English", "Hindi", "French", "Spanish", "German", "Bengali"])
     lang_map = {
         "English": "eng",
@@ -53,8 +48,6 @@ if uploaded_file is not None:
 
         st.success("✅ Text Extraction Complete!")
         st.text_area("📄 Extracted Text", extracted_text, height=300)
-
-        # Optional: Download button
         st.download_button("📥 Download Text", extracted_text, file_name="extracted_text.txt")
 else:
     st.info("Please upload an image file to begin.")
