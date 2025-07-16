@@ -1,36 +1,29 @@
 import streamlit as st
-import requests
+import easyocr
+import numpy as np
+from PIL import Image
+from io import BytesIO
 from fpdf import FPDF
 from docx import Document
 import pandas as pd
-from io import BytesIO
 import json
 
-# -------- CONFIG --------
-API_KEY = "K82703136888957"
-OCR_API_URL = "https://eu1.ocr.space/parse/image"
+# ------------------------ OCR FUNCTION ------------------------
+@st.cache_resource
+def load_ocr_model():
+    return easyocr.Reader(['en', 'hi', 'fr', 'es', 'de', 'bn'], gpu=False)
 
-# -------- OCR FUNCTION --------
-def ocr_space_image(image_file, api_key=API_KEY, language="eng"):
+def ocr_image_local(image_file, language_code="en"):
     try:
-        response = requests.post(
-            OCR_API_URL,
-            files={"filename": image_file},
-            data={
-                "apikey": api_key,
-                "language": language,
-                "isOverlayRequired": False,
-            },
-        )
-        result = response.json()
-        if "ParsedResults" in result:
-            return result["ParsedResults"][0]["ParsedText"]
-        else:
-            return f"❌ OCR Failed: {result.get('ErrorMessage', 'No text found')}"
+        reader = load_ocr_model()
+        image = Image.open(image_file)
+        result = reader.readtext(np.array(image), detail=0, paragraph=True)
+        return '\n'.join(result) if result else "❌ No text found."
     except Exception as e:
         return f"❌ OCR Failed: {str(e)}"
 
-# -------- EXPORT FUNCTIONS --------
+# ------------------------ EXPORT FUNCTIONS ------------------------
+
 def convert_to_pdf(text):
     pdf = FPDF()
     pdf.add_page()
@@ -71,10 +64,11 @@ def convert_to_ipynb(text):
     buffer.write(json.dumps(notebook, indent=2).encode('utf-8'))
     return buffer.getvalue()
 
-# -------- UI --------
+# ------------------------ UI ------------------------
+
 st.set_page_config(page_title="📸 Pic2Docs", layout="centered")
 st.title("📸 Pic2Docs - Convert Image to Text")
-st.markdown("Upload an image and extract text using OCR API.\n\nSupports multiple languages 🌐.")
+st.markdown("Upload an image and extract text using OCR.\n\nWorks offline – No API needed ✅")
 
 uploaded_file = st.file_uploader("Upload an image", type=["png", "jpg", "jpeg"])
 
@@ -83,22 +77,21 @@ if uploaded_file:
 
     lang_display = st.selectbox("Select image language", ["English", "Hindi", "French", "Spanish", "German", "Bengali"])
     lang_map = {
-        "English": "eng",
-        "Hindi": "hin",
-        "French": "fra",
-        "Spanish": "spa",
-        "German": "ger",
-        "Bengali": "ben"
+        "English": "en",
+        "Hindi": "hi",
+        "French": "fr",
+        "Spanish": "es",
+        "German": "de",
+        "Bengali": "bn"
     }
     selected_lang_code = lang_map[lang_display]
 
     if st.button("📝 Extract Text"):
         with st.spinner("Processing image... please wait ⏳"):
-            extracted_text = ocr_space_image(uploaded_file, language=selected_lang_code)
+            extracted_text = ocr_image_local(uploaded_file, selected_lang_code)
 
         st.text_area("📄 Extracted Text", extracted_text, height=300)
 
-        # If OCR worked, show download options
         if not extracted_text.startswith("❌"):
             st.download_button("📥 Download .txt", extracted_text, file_name="text.txt")
             st.download_button("📄 Download PDF", convert_to_pdf(extracted_text), file_name="text.pdf")
