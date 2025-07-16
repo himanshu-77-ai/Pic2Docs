@@ -8,7 +8,7 @@ import json
 
 # -------- CONFIG --------
 API_KEY = "K82703136888957"
-OCR_API_URL = "https://api.ocr.space/parse/image"
+OCR_API_URL = "https://eu1.ocr.space/parse/image"
 
 # -------- OCR FUNCTION --------
 def ocr_space_image(image_file, api_key=API_KEY, language="eng"):
