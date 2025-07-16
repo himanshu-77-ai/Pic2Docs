@@ -4,10 +4,13 @@ from fpdf import FPDF
 from docx import Document
 import pandas as pd
 from io import BytesIO
+import json
 
+# -------- CONFIG --------
 API_KEY = "K82703136888957"
 OCR_API_URL = "https://api.ocr.space/parse/image"
 
+# -------- OCR FUNCTION --------
 def ocr_space_image(image_file, api_key=API_KEY, language="eng"):
     try:
         response = requests.post(
@@ -23,19 +26,18 @@ def ocr_space_image(image_file, api_key=API_KEY, language="eng"):
         if "ParsedResults" in result:
             return result["ParsedResults"][0]["ParsedText"]
         else:
-            return f"❌ OCR Failed: {result.get('ErrorMessage', 'Unknown error')}"
+            return f"❌ OCR Failed: {result.get('ErrorMessage', 'No text found')}"
     except Exception as e:
         return f"❌ OCR Failed: {str(e)}"
 
+# -------- EXPORT FUNCTIONS --------
 def convert_to_pdf(text):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", size=12)
     for line in text.split('\n'):
         pdf.cell(200, 10, txt=line, ln=True)
-    buffer = BytesIO()
-    pdf.output(buffer)
-    return buffer.getvalue()
+    return pdf.output(dest='S').encode('latin-1')
 
 def convert_to_word(text):
     doc = Document()
@@ -52,8 +54,25 @@ def convert_to_excel(text):
         df.to_excel(writer, index=False)
     return buffer.getvalue()
 
-# Streamlit UI
-st.set_page_config(page_title="Pic2Docs", layout="centered")
+def convert_to_ipynb(text):
+    notebook = {
+        "cells": [
+            {
+                "cell_type": "markdown",
+                "metadata": {},
+                "source": [text]
+            }
+        ],
+        "metadata": {},
+        "nbformat": 4,
+        "nbformat_minor": 2
+    }
+    buffer = BytesIO()
+    buffer.write(json.dumps(notebook, indent=2).encode('utf-8'))
+    return buffer.getvalue()
+
+# -------- UI --------
+st.set_page_config(page_title="📸 Pic2Docs", layout="centered")
 st.title("📸 Pic2Docs - Convert Image to Text")
 st.markdown("Upload an image and extract text using OCR API.\n\nSupports multiple languages 🌐.")
 
@@ -78,13 +97,14 @@ if uploaded_file:
             extracted_text = ocr_space_image(uploaded_file, language=selected_lang_code)
 
         st.text_area("📄 Extracted Text", extracted_text, height=300)
-        
+
+        # If OCR worked, show download options
         if not extracted_text.startswith("❌"):
-            # Download buttons
             st.download_button("📥 Download .txt", extracted_text, file_name="text.txt")
             st.download_button("📄 Download PDF", convert_to_pdf(extracted_text), file_name="text.pdf")
             st.download_button("📝 Download Word", convert_to_word(extracted_text), file_name="text.docx")
             st.download_button("📊 Download Excel", convert_to_excel(extracted_text), file_name="text.xlsx")
+            st.download_button("📘 Download Notebook", convert_to_ipynb(extracted_text), file_name="text.ipynb")
         else:
             st.error(extracted_text)
 else:
