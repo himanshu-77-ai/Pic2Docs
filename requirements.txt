@@ -1,9 +1,8 @@
-streamlit
-easyocr
-Pillow
-fpdf
-python-docx
-pandas
-xlsxwriter
-numpy
-fpdf2==2.7.7 
+streamlit==1.47.0
+easyocr==1.7.0
+pillow==10.3.0
+fpdf2==2.7.7
+python-docx==1.2.0
+pandas==2.3.1
+xlsxwriter==3.2.5
+numpy==2.3.1
