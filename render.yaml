@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: pic2docs
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
