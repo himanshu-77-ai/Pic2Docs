@@ -132,7 +132,7 @@ def summarize_text(text: str, max_sentences: int = 4) -> str:
     sentences = [s.strip() for s in sentences if len(s.strip()) > 20]
     if len(sentences) <= max_sentences:
         return text.strip()
-    kw_set = {w.lower() for w, _ in extract_keywords(text, top_n=20)}
+    kw_set = {w.lower() for w in extract_keywords(text, top_n=20)}
     def score(s: str) -> float:
         words = re.findall(r"\b[A-Za-z]{3,}\b", s.lower())
         return sum(1 for w in words if w in kw_set) / max(len(words), 1)
